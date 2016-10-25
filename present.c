@@ -33,7 +33,7 @@ input_t* init(char** args){
 
     input_t* data = malloc(sizeof(int32_t)*3+strlen(args[2])+strlen(args[3]));
 
-    data->rounds = 32;   //By default algorithm manages 32 rounds
+    data->rounds = 31;   //Full encryption consist in 31 rounds
     data->encrypt = (not strcmp(args[1], "encrypt"));
     data->_80bitkey = strlen(args[3]) == 10;
 
@@ -44,16 +44,6 @@ input_t* init(char** args){
     data->key = (unsigned char*)args[3];
 
     return data;
-}
-
-void generateRoundKeys(input_t* data) {
-
-}
-
-void addRoundKey(uint8_t* state[], uint8_t* roundKey[]){
-
-
-
 }
 
 
@@ -81,6 +71,7 @@ int main(int argc, char** argv) {
 
     uint8_t round_counter = 1;
     uint8_t state[8];
+    uint8_t cipher[8];
     uint8_t round_key[10];
 
     /** Add round key **/
@@ -93,7 +84,6 @@ int main(int argc, char** argv) {
     state[5] = data->text[5] xor data->key[5];
     state[6] = data->text[6] xor data->key[6];
     state[7] = data->text[7] xor data->key[7];
-
 
     /** Update round key **/
 
@@ -113,14 +103,143 @@ int main(int argc, char** argv) {
     round_key[7] xor_eq round_counter >> 1;
     round_key[8] xor_eq round_counter << 7;
 
-//    generateRoundKeys(data);
+    // substitution and permutation
+    cipher[0] =
+            (sbox_pmt_3[state[0]] bitand 0xC0) bitor
+            (sbox_pmt_2[state[1]] bitand 0x30) bitor
+            (sbox_pmt_1[state[2]] bitand 0x0C) bitor
+            (sbox_pmt_0[state[3]] bitand 0x03);
+    cipher[1] =
+            (sbox_pmt_3[state[4]] bitand 0xC0) bitor
+            (sbox_pmt_2[state[5]] bitand 0x30) bitor
+            (sbox_pmt_1[state[6]] bitand 0x0C) bitor
+            (sbox_pmt_0[state[7]] bitand 0x03);
 
-//    for(int i = 1; i<(data->rounds)-1; i++) {
-//          addRoundKey(state,Ki)
-//          sBoxLayer(state)
-//          pLayer(state)
-//    }
-//    addRoundKey(state,K32)
+    cipher[2] =
+            (sbox_pmt_0[state[0]] bitand 0xC0) bitor
+            (sbox_pmt_3[state[1]] bitand 0x30) bitor
+            (sbox_pmt_2[state[2]] bitand 0x0C) bitor
+            (sbox_pmt_1[state[3]] bitand 0x03);
+    cipher[3] =
+            (sbox_pmt_0[state[4]] bitand 0xC0) bitor
+            (sbox_pmt_3[state[5]] bitand 0x30) bitor
+            (sbox_pmt_2[state[6]] bitand 0x0C) bitor
+            (sbox_pmt_1[state[7]] bitand 0x03);
+
+    cipher[4] =
+            (sbox_pmt_1[state[0]] bitand 0xC0) bitor
+            (sbox_pmt_0[state[1]] bitand 0x30) bitor
+            (sbox_pmt_3[state[2]] bitand 0x0C) bitor
+            (sbox_pmt_2[state[3]] bitand 0x03);
+    cipher[5] =
+            (sbox_pmt_1[state[4]] bitand 0xC0) bitor
+            (sbox_pmt_0[state[5]] bitand 0x30) bitor
+            (sbox_pmt_3[state[6]] bitand 0x0C) bitor
+            (sbox_pmt_2[state[7]] bitand 0x03);
+
+    cipher[6] =
+            (sbox_pmt_2[state[0]] bitand 0xC0) bitor
+            (sbox_pmt_1[state[1]] bitand 0x30) bitor
+            (sbox_pmt_0[state[2]] bitand 0x0C) bitor
+            (sbox_pmt_3[state[3]] bitand 0x03);
+    cipher[7] =
+            (sbox_pmt_2[state[4]] bitand 0xC0) bitor
+            (sbox_pmt_1[state[5]] bitand 0x30) bitor
+            (sbox_pmt_0[state[6]] bitand 0x0C) bitor
+            (sbox_pmt_3[state[7]] bitand 0x03);
+
+    for (round_counter = 2; round_counter <= data->rounds; round_counter++) {
+        state[0] = cipher[0] xor round_key[0];
+        state[1] = cipher[1] xor round_key[1];
+        state[2] = cipher[2] xor round_key[2];
+        state[3] = cipher[3] xor round_key[3];
+        state[4] = cipher[4] xor round_key[4];
+        state[5] = cipher[5] xor round_key[5];
+        state[6] = cipher[6] xor round_key[6];
+        state[7] = cipher[7] xor round_key[7];
+
+        cipher[0] =
+                (sbox_pmt_3[state[0]] bitand 0xC0) bitor
+                (sbox_pmt_2[state[1]] bitand 0x30) bitor
+                (sbox_pmt_1[state[2]] bitand 0x0C) bitor
+                (sbox_pmt_0[state[3]] bitand 0x03);
+
+        cipher[1] =
+                (sbox_pmt_3[state[4]] bitand 0xC0) bitor
+                (sbox_pmt_2[state[5]] bitand 0x30) bitor
+                (sbox_pmt_1[state[6]] bitand 0x0C) bitor
+                (sbox_pmt_0[state[7]] bitand 0x03);
+
+        cipher[2] =
+                (sbox_pmt_0[state[0]] bitand 0xC0) bitor
+                (sbox_pmt_3[state[1]] bitand 0x30) bitor
+                (sbox_pmt_2[state[2]] bitand 0x0C) bitor
+                (sbox_pmt_1[state[3]] bitand 0x03);
+
+        cipher[3] =
+                (sbox_pmt_0[state[4]] bitand 0xC0) bitor
+                (sbox_pmt_3[state[5]] bitand 0x30) bitor
+                (sbox_pmt_2[state[6]] bitand 0x0C) bitor
+                (sbox_pmt_1[state[7]] bitand 0x03);
+
+        cipher[4] =
+                (sbox_pmt_1[state[0]] bitand 0xC0) bitor
+                (sbox_pmt_0[state[1]] bitand 0x30) bitor
+                (sbox_pmt_3[state[2]] bitand 0x0C) bitor
+                (sbox_pmt_2[state[3]] bitand 0x03);
+
+        cipher[5] =
+                (sbox_pmt_1[state[4]] bitand 0xC0) bitor
+                (sbox_pmt_0[state[5]] bitand 0x30) bitor
+                (sbox_pmt_3[state[6]] bitand 0x0C) bitor
+                (sbox_pmt_2[state[7]] bitand 0x03);
+
+        cipher[6] =
+                (sbox_pmt_2[state[0]] bitand 0xC0) bitor
+                (sbox_pmt_1[state[1]] bitand 0x30) bitor
+                (sbox_pmt_0[state[2]] bitand 0x0C) bitor
+                (sbox_pmt_3[state[3]] bitand 0x03);
+
+        cipher[7] =
+                (sbox_pmt_2[state[4]] bitand 0xC0) bitor
+                (sbox_pmt_1[state[5]] bitand 0x30) bitor
+                (sbox_pmt_0[state[6]] bitand 0x0C) bitor
+                (sbox_pmt_3[state[7]] bitand 0x03);
+
+        round_key[5] xor_eq round_counter << 2; // do this first, which may be faster
+
+        // use state[] for temporary storage
+        state[2] = round_key[9];
+        state[1] = round_key[8];
+        state[0] = round_key[7];
+
+        round_key[9] = round_key[6] << 5 bitor round_key[7] >> 3;
+        round_key[8] = round_key[5] << 5 bitor round_key[6] >> 3;
+        round_key[7] = round_key[4] << 5 bitor round_key[5] >> 3;
+        round_key[6] = round_key[3] << 5 bitor round_key[4] >> 3;
+        round_key[5] = round_key[2] << 5 bitor round_key[3] >> 3;
+        round_key[4] = round_key[1] << 5 bitor round_key[2] >> 3;
+        round_key[3] = round_key[0] << 5 bitor round_key[1] >> 3;
+        round_key[2] = state[2] << 5 bitor round_key[0] >> 3;
+        round_key[1] = state[1] << 5 bitor state[2] >> 3;
+        round_key[0] = state[0] << 5 bitor state[1] >> 3;
+
+        round_key[0] = (round_key[0] bitand 0x0F) bitor sbox[round_key[0] >> 4];
+    }
+
+    // If round is not equal to 31, then do not perform the last adding key operation
+    if (31 == data->rounds) {
+        cipher[0] xor_eq round_key[0];
+        cipher[1] xor_eq round_key[1];
+        cipher[2] xor_eq round_key[2];
+        cipher[3] xor_eq round_key[3];
+        cipher[4] xor_eq round_key[4];
+        cipher[5] xor_eq round_key[5];
+        cipher[6] xor_eq round_key[6];
+        cipher[7] xor_eq round_key[7];
+    }
+
+    printf("Cipher text: %s", cipher);
 
 
     return EXIT_SUCCESS;
