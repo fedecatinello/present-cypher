@@ -4,15 +4,14 @@ import java.util.Arrays;
 
 public class PBox {
 
-    public static String[] permutar(String[] inputs) {
+    public static String permutar(String[] inputs) {
         //el largo de los string tiene que ser igual a la cantidad de strings
-        String[] outputs = new String[inputs.length];
-        for(String input : inputs){ //para cada string
-            char[] charInput = input.toCharArray(); //obtengo los caracters
-            for(int i=0; i < charInput.length; i++){
-                outputs[i] = (outputs[i] == null ? "" : outputs[i]) + charInput[i]; //pongo cada caracter en un string distinto
+        StringBuilder output = new StringBuilder();
+        for (int i = 0; i < 4; i++) {
+            for(String input : inputs){ //para cada string
+                output.append(input.charAt(i));
             }
         }
-        return outputs;
+        return output.toString();
     }
 }
