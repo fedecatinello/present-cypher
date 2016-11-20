@@ -7,7 +7,7 @@ public class SBox {
     static {
         tablaSustitucion = new HashMap<>();
         Map<String,String> mapa = new HashMap<>();
-        mapa.put("00","0000");
+        mapa.put("00","0010");
         mapa.put("01","1110");
         mapa.put("10","0100");
         mapa.put("11","1011");
@@ -34,8 +34,15 @@ public class SBox {
     }
 
     public static String sustituir(String input) {
-        String interior = input.substring(1,3); //busco los 2 bits interiores
-        String exterior = input.substring(0,1) + input.substring(3,4); //busco los 2 bits exteriores
+        String result = sustituirParte(input.substring(0,4));
+        if(input.length() > 4)
+            result +=  sustituirParte(input.substring(4));
+        return result;
+    }
+
+    private static String sustituirParte(String parte) {
+        String interior = parte.substring(1,3); //busco los 2 bits interiores
+        String exterior = parte.substring(0,1) + parte.substring(3,4); //busco los 2 bits exteriores
         return tablaSustitucion.get(interior).get(exterior); //los busco en la tabla
     }
 }

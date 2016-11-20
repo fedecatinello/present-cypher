@@ -13,42 +13,64 @@ import java.util.concurrent.Future;
 
 public class Present {
 
-    public static final int ROUNDS = 31;
-    public static final int BASE = 2;
-    public static final int BITS_COUNT = 4;
-    public static final int BLOCK_SIZE = 64;
-    public static final int KEY_SIZE = 80;
+    private static final int ROUNDS = 31;
+    private static final int BASE = 2;
+    private static final int BITS_COUNT = 8;
+    private static final int BLOCK_SIZE = 64;
+    //    private static final int KEY_SIZE = 80;
     private static String key;
+    private static String[] keys = new String[ROUNDS + 1];
     private static String header;
 
-    public static void main(String[] args){
-        long start = System.currentTimeMillis();
-        final String clave = getBits(args[0]);
+    public static void main(String[] args) {
+        String bitsClave = getBits(args[0]);
+        generarRoundKeys(bitsClave);
         String file = args[1];
         String bits = getBitsFile(file);
-        final String[] bitsArr = getBitsArray(bits,BLOCK_SIZE);
+
+        //encriptar
+        final String[] bitsArr = getBitsArray(bits, BLOCK_SIZE);
         ExecutorService EXEC = Executors.newCachedThreadPool();
-        List<Callable<String>> tasks = new ArrayList<>();
+        List<Callable<String>> blocks = new ArrayList<>();
         for (int i = 0; i < bitsArr.length; i++) {
-            final int round = i;
-            Callable<String> c = () -> {
-                return encriptar(bitsArr[round],clave);
-            };
-            tasks.add(c);
+            final int block = i;
+            Callable<String> c = () -> encriptar(bitsArr[block]);
+            blocks.add(c);
         }
         StringBuilder stringBuilder = new StringBuilder();
         try {
-            List<Future<String>> results = EXEC.invokeAll(tasks);
+            List<Future<String>> results = EXEC.invokeAll(blocks);
             for (Future<String> fr : results) {
                 stringBuilder.append(fr.get());
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
+        String bitsCifrados = stringBuilder.toString();
         String fileCifrado = file.substring(0, file.length() - 4) + "_cifrado" + file.substring(file.length() - 4);
-        setBitsFile(fileCifrado, header + stringBuilder.toString());
-        long finish = System.currentTimeMillis();
-        double time = (finish - start)/1000;
+        setBitsFile(fileCifrado, header + bitsCifrados);
+
+        //desencriptar
+        final String[] bitsEncriptArr = getBitsArray(bitsCifrados, BLOCK_SIZE);
+        EXEC = Executors.newCachedThreadPool();
+        blocks = new ArrayList<>();
+        for (int i = 0; i < bitsEncriptArr.length; i++) {
+            final int block = i;
+            Callable<String> c = () -> desencriptar(bitsEncriptArr[block]);
+            blocks.add(c);
+        }
+        stringBuilder = new StringBuilder();
+        try {
+            List<Future<String>> results = EXEC.invokeAll(blocks);
+            for (Future<String> fr : results) {
+                stringBuilder.append(fr.get());
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        String fileDescifrado = file.substring(0, file.length() - 4) + "_descifrado" + file.substring(file.length() - 4);
+        setBitsFile(fileDescifrado, header + stringBuilder.toString());
+
     }
 
     //obtengo el string de bits del texto
@@ -58,7 +80,7 @@ public class Present {
             byte[] chars = texto.getBytes("UTF-8");
             for (byte c : chars) {
                 String s = Integer.toBinaryString(c);
-                builder.append(StringUtils.leftPad(s,8,"0"));
+                builder.append(StringUtils.leftPad(s, 8, "0"));
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -71,16 +93,16 @@ public class Present {
         StringBuilder builder = new StringBuilder();
         try {
             try (BufferedInputStream is = new BufferedInputStream(new FileInputStream(filePath))) {
-                for (int b; (b = is.read()) != -1;) {
+                for (int b; (b = is.read()) != -1; ) {
                     String s = Integer.toBinaryString(b);
 //                    s = s.substring(s.length() - 8);
-                    builder.append(StringUtils.leftPad(s,8,"0"));
+                    builder.append(StringUtils.leftPad(s, 8, "0"));
                 }
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
-        header = builder.toString().substring(0,432);
+        header = builder.toString().substring(0, 432);
         return builder.toString().substring(432);
     }
 
@@ -97,14 +119,15 @@ public class Present {
 
     }
 
-    private static String encriptar(String bits, String clave) {
-        key = clave;
+    private static String encriptar(String bits) {
         try {
-            for(int round = 0; round <= ROUNDS; round++){
-                String roundKey = getRoundKey(round);
-                String roundBits = XOR(bits,roundKey);
-                String[] sBoxOutputs = sustituir(roundBits);
-                bits = PBox.permutar(sBoxOutputs);
+            for (int round = 0; round <= ROUNDS; round++) {
+                String roundKey = keys[round];
+                String roundBits = XOR(bits, roundKey);
+                String[] arrRoundBits = getBitsArray(roundBits, BITS_COUNT);
+                String[] sBoxOutputs = sustituir(arrRoundBits);
+                String[] pBoxOutputs = PBox.permutar(sBoxOutputs);
+                bits = getBitsStr(pBoxOutputs);
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -112,36 +135,43 @@ public class Present {
         return bits;
     }
 
+    private static String getBitsStr(String[] bits) {
+        StringBuilder result = new StringBuilder();
+        for (String s : bits) {
+            result.append(s);
+        }
+        return result.toString();
+    }
+
     //aplico el sbox a la clave para que varie en cada vuelta
     private static String getRoundKey(int round) {
-        String roundkey = key.substring(0,BLOCK_SIZE);
+        String roundkey = key.substring(0, BLOCK_SIZE);
 //        key = rotar61Izquierda(key); //por el momento, no lo pude hacer andar
         key = sustituirPrimeros4Bits(key);
         key = actualizarUltimos5Bits(key, round);
         return roundkey;
     }
 
+/*
     private static String rotar61Izquierda(String key) {
         Integer bits = Integer.parseInt(key, BASE);
         Integer rotado = Integer.rotateLeft(bits,61);
         return StringUtils.leftPad(Integer.toBinaryString(rotado),KEY_SIZE, "0");
     }
+*/
 
     private static String sustituirPrimeros4Bits(String key) {
-        StringBuilder builder = new StringBuilder();
-        builder.append(SBox.sustituir(key.substring(0,BITS_COUNT)));
-        builder.append(key.substring(BITS_COUNT));
-        return builder.toString();
+        return SBox.sustituir(key.substring(0, 4)) + key.substring(4);
     }
 
     private static String actualizarUltimos5Bits(String key, Integer round) {
         StringBuilder builder = new StringBuilder();
-        builder.append(key.substring(0,key.length() - 5));
-        BigInteger b1 = new BigInteger(key.substring(key.length() - 5),BASE);
+        builder.append(key.substring(0, key.length() - 5));
+        BigInteger b1 = new BigInteger(key.substring(key.length() - 5), BASE);
         BigInteger b2 = new BigInteger(round.toString());
         BigInteger xor = b1.xor(b2);
         String xorString = xor.toString(BASE);
-        if(xorString.length() < 5) {
+        if (xorString.length() < 5) {
             xorString = StringUtils.leftPad(xorString, 5, "0");
         } else {
             xorString = xorString.substring(xorString.length() - 5);
@@ -151,11 +181,10 @@ public class Present {
     }
 
     //aplico el sbox
-    private static String[] sustituir(String bits){
-        String[] arrRoundBits = getBitsArray(bits, BITS_COUNT);
-        String[] sBoxOutputs = new String[arrRoundBits.length];
-        for (int i=0; i < arrRoundBits.length; i++){
-            sBoxOutputs[i] = SBox.sustituir(arrRoundBits[i]);
+    private static String[] sustituir(String[] bits) {
+        String[] sBoxOutputs = new String[bits.length];
+        for (int i = 0; i < bits.length; i++) {
+            sBoxOutputs[i] = SBox.sustituir(bits[i]);
         }
         return sBoxOutputs;
     }
@@ -172,16 +201,40 @@ public class Present {
     private static String[] getBitsArray(String bits, int bitsCount) {
         List<String> list = new ArrayList<>();
         String aux = bits;
-        if(bits.length() % bitsCount > 0) {
+        if (bits.length() % bitsCount > 0) {
             int largo = (bits.length() / bitsCount) + 1;
-            aux = StringUtils.leftPad(bits, largo*bitsCount, "0");
+            aux = StringUtils.leftPad(bits, largo * bitsCount, "0");
         }
-        while(aux.length() >= bitsCount) {
+        while (aux.length() >= bitsCount) {
             list.add(aux.substring(0, bitsCount));
             aux = aux.substring(bitsCount);
         }
         String[] arr = new String[list.size()];
         arr = list.toArray(arr);
         return arr;
+    }
+
+    private static String desencriptar(String bits) {
+        try {
+            for (int round = ROUNDS; round >= 0 ; round--) {
+                String roundKey = keys[round];
+                String[] arrRoundBits = getBitsArray(bits, BITS_COUNT);
+                String[] pBoxOutputs = PBox.permutar(arrRoundBits);
+                String[] sBoxOutputs = sustituir(pBoxOutputs);
+                String roundBits = getBitsStr(sBoxOutputs);
+                bits = XOR(roundBits, roundKey);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return bits;
+    }
+
+    private static void generarRoundKeys(String clave) {
+        key = clave;
+        for (int round = 0; round <= ROUNDS; round++) {
+            keys[round] = getRoundKey(round);
+        }
+
     }
 }
