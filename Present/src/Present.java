@@ -1,8 +1,8 @@
 import org.apache.commons.lang3.StringUtils;
 
-import javax.imageio.ImageIO;
-import java.awt.image.BufferedImage;
-import java.io.*;
+import java.io.BufferedInputStream;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
@@ -19,24 +19,20 @@ public class Present {
     public static final int BLOCK_SIZE = 64;
     public static final int KEY_SIZE = 80;
     private static String key;
-    private static String[] bitsEncriptadosArr;
     private static String header;
 
-    public static void test(){
+    public static void main(String[] args){
         long start = System.currentTimeMillis();
-        final String clave = getBits("ABCDEFGHIJ");
-//        String bits = getBits("Hola mundo");
-        String bits = getBitsFile("C:\\Users\\Nico\\Desktop\\arbol.bmp");
+        final String clave = getBits(args[0]);
+        String file = args[1];
+        String bits = getBitsFile(file);
         final String[] bitsArr = getBitsArray(bits,BLOCK_SIZE);
-        bitsEncriptadosArr = new String[bitsArr.length];
         ExecutorService EXEC = Executors.newCachedThreadPool();
         List<Callable<String>> tasks = new ArrayList<>();
         for (int i = 0; i < bitsArr.length; i++) {
             final int round = i;
             Callable<String> c = () -> {
-                String result = encriptar(bitsArr[round],clave);
-                bitsEncriptadosArr[round] = result;
-                return result;
+                return encriptar(bitsArr[round],clave);
             };
             tasks.add(c);
         }
@@ -49,134 +45,56 @@ public class Present {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        String bitsEncriptadosStr = getBitsString(bitsEncriptadosArr);
-        String result = stringBuilder.toString();
-        setBitsFile("C:\\Users\\Nico\\Desktop\\arbol_cifrado.bmp", header + result);
+        String fileCifrado = file.substring(0, file.length() - 4) + "_cifrado" + file.substring(file.length() - 4);
+        setBitsFile(fileCifrado, header + stringBuilder.toString());
         long finish = System.currentTimeMillis();
         double time = (finish - start)/1000;
     }
 
+    //obtengo el string de bits del texto
+    private static String getBits(String texto) {
+        StringBuilder builder = new StringBuilder();
+        try {
+            byte[] chars = texto.getBytes("UTF-8");
+            for (byte c : chars) {
+                String s = Integer.toBinaryString(c);
+                builder.append(StringUtils.leftPad(s,8,"0"));
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return builder.toString();
+    }
+
+    //obtengo el string de bits de la imagen
+    private static String getBitsFile(String filePath) {
+        StringBuilder builder = new StringBuilder();
+        try {
+            try (BufferedInputStream is = new BufferedInputStream(new FileInputStream(filePath))) {
+                for (int b; (b = is.read()) != -1;) {
+                    String s = Integer.toBinaryString(b);
+//                    s = s.substring(s.length() - 8);
+                    builder.append(StringUtils.leftPad(s,8,"0"));
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        header = builder.toString().substring(0,432);
+        return builder.toString().substring(432);
+    }
+
+    //grabo la imagen cifrada
     private static void setBitsFile(String filePath, String bits) {
         try {
             byte[] bytes = new BigInteger(bits, 2).toByteArray();
             FileOutputStream fos = new FileOutputStream(filePath);
             fos.write(bytes);
             fos.close();
-//            BufferedImage img = null;
-//            ByteArrayInputStream bais = new ByteArrayInputStream(bytes);
-//            try {
-//                img = ImageIO.read(bais);
-//            } catch (IOException e) {
-//                throw new RuntimeException(e);
-//            }
-//            ImageIO.write(img, "BMP", new File(filePath));
         } catch (Exception e) {
             e.printStackTrace();
         }
 
-    }
-
-    private static String getBitsFile(String filePath) {
-        StringBuilder builder = new StringBuilder();
-        StringBuilder builder2 = new StringBuilder();
-        FileOutputStream fos = null;
-        FileOutputStream fos2 = null;
-        BufferedOutputStream out = null;
-        BufferedOutputStream out2 = null;
-        try {
-/*
-            File file = new File("filename.bin");
-            byte[] fileData = new byte[file.length()];
-            FileInputStream in = new FileInputStream(file);
-            in.read(fileData):
-            in.close();
-*/
-//            File file = new File(filePath);
-//
-//            FileInputStream fis = new FileInputStream(file);
-//            //create FileInputStream which obtains input bytes from a file in a file system
-//            //FileInputStream is meant for reading streams of raw bytes such as image data. For reading streams of characters, consider using FileReader.
-//
-//            ByteArrayOutputStream bos = new ByteArrayOutputStream();
-//            byte[] buf = new byte[1024];
-//            for (int readNum; (readNum = fis.read(buf)) != -1;) {
-//                //Writes to this byte array output stream
-//                bos.write(buf, 0, readNum);
-//            }
-//            byte[] bytes = bos.toByteArray();
-//            for (int i = 0; i < bytes.length; i++) {
-//                String s = Integer.toBinaryString(bytes[i]);
-//                builder.append(StringUtils.leftPad(s,8,"0"));
-//                builder2.append(getBits(bytes[i]));
-//            }
-
-            try (BufferedInputStream is = new BufferedInputStream(new FileInputStream(filePath))) {
-                for (int b; (b = is.read()) != -1;) {
-                    String s = "0000000" + Integer.toBinaryString(b);
-                    s = s.substring(s.length() - 8);
-//                    builder.append(s).append(' ');
-                    builder.append(s);
-                }
-            }
-//            out = new BufferedOutputStream(new FileOutputStream("C:\\Users\\Nico\\Desktop\\imagen_temp.bmp"));
-//            Scanner sc = new Scanner(builder.toString());
-//            while (sc.hasNextInt()) {
-//                int b = sc.nextInt(2);
-//                out.write(b);
-//            }
-//            fos = new FileOutputStream("C:\\Users\\Nico\\Desktop\\imagen_temp3.bmp");
-//            fos.write(decodeBinary(builder2.toString()));
-//            fos2 = new FileOutputStream("C:\\Users\\Nico\\Desktop\\imagen_temp4.bmp");
-//            fos2.write(decodeBinary2(builder2.toString()));
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-//            try {
-////                fos.close();
-////                fos2.close();
-////                out.close();
-////                out2.close();
-//            } catch (IOException e) {
-//                e.printStackTrace();
-//            }
-        }
-        header = builder.toString().substring(0,432);
-//        setBitsFile("C:\\Users\\Nico\\Desktop\\imagen_temp2.bmp", builder.toString().substring(54));
-        return builder.toString().substring(432);
-    }
-
-    private static String getBits(byte b)
-    {
-        String result = "";
-        for(int i = 0; i < 8; i++)
-            result += (b & (1 << i)) == 0 ? "0" : "1";
-        return result;
-    }
-
-    private static byte[] decodeBinary(String s) {
-        if (s.length() % 8 != 0) throw new IllegalArgumentException(
-                "Binary data length must be multiple of 8");
-        byte[] data = new byte[s.length() / 8];
-        for (int i = 0; i < s.length(); i++) {
-            char c = s.charAt(i);
-            if (c == '1') {
-                data[i >> 3] |= 0x80 >> (i & 0x7);
-            } else if (c != '0') {
-                throw new IllegalArgumentException("Invalid char in binary string");
-            }
-        }
-        return data;
-    }
-
-    private static byte[] decodeBinary2(String s) {
-        if (s.length() % 8 != 0) throw new IllegalArgumentException(
-                "Binary data length must be multiple of 8");
-        byte[] data = new byte[s.length() / 8];
-        for (int i = 0; i < s.length(); i++) {
-            data[i] = (byte) Long.parseLong(s.substring(0,8), 2);
-            s = s.substring(8);
-        }
-        return data;
     }
 
     private static String encriptar(String bits, String clave) {
@@ -232,15 +150,6 @@ public class Present {
         return builder.toString();
     }
 
-    //joineo el array de strings en un string
-    private static String getBitsString(String[] arr) {
-        StringBuilder builder = new StringBuilder();
-        for(String s : arr) {
-            builder.append(s);
-        }
-        return builder.toString();
-    }
-
     //aplico el sbox
     private static String[] sustituir(String bits){
         String[] arrRoundBits = getBitsArray(bits, BITS_COUNT);
@@ -274,20 +183,5 @@ public class Present {
         String[] arr = new String[list.size()];
         arr = list.toArray(arr);
         return arr;
-    }
-
-    //convierto el string a string de bits
-    private static String getBits(String texto) {
-        StringBuilder builder = new StringBuilder();
-        try {
-            byte[] chars = texto.getBytes("UTF-8");
-            for (byte c : chars) {
-                String s = Integer.toBinaryString(c);
-                builder.append(StringUtils.leftPad(s,8,"0"));
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return builder.toString();
     }
 }
