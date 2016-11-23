@@ -1,16 +1,30 @@
-import java.util.Arrays;
+class PBox {
 
-public class PBox {
+    public static final int WORD_LENGHT = 16;
 
-    public static String[] permutar(String[] inputs) {
-        //el largo de los string tiene que ser igual a la cantidad de strings
+    static String[] permutar(String[] inputs, boolean desencriptar) {
         String[] outputs = new String[inputs.length];
-        for (int i = 0; i < inputs.length; i++) {
+        for (int i = 0; i < outputs.length; i++) {
+            outputs[i] = "";
+        }
+        if(!desencriptar) {
             StringBuilder output = new StringBuilder();
-            for(String input : inputs){ //para cada string
-                output.append(input.charAt(i));
+            int pos = 0;
+            for (int i = 0; i < WORD_LENGHT; i++) {
+                for (String input : inputs) { //para cada string
+                    output.append(input.charAt(i));
+                }
+                if (output.length() == WORD_LENGHT) {
+                    outputs[pos++] = output.toString();
+                    output = new StringBuilder();
+                }
             }
-            outputs[i] = output.toString();
+        } else {
+            for(String input : inputs){ //para cada string
+                for (int i = 0; i < WORD_LENGHT; i++) {
+                    outputs[i % inputs.length] += input.charAt(i);
+                }
+            }
         }
         return outputs;
     }
